@@ -1,0 +1,81 @@
+import streamlit as st
+import subprocess
+import os
+import tempfile
+import time
+
+# --- Page Config ---
+st.set_page_config(
+    page_title="Video Converter",
+    page_icon="🎬",
+    layout="centered"
+)
+
+# --- Custom Background + Styling ---
+page_bg = """
+<style>
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    color: white;
+}
+[data-testid="stHeader"] {
+    background: rgba(0,0,0,0);
+}
+h1, h2, h3, h4 {
+    color: #f8f9fa !important;
+    text-align: center;
+}
+</style>
+"""
+st.markdown(page_bg, unsafe_allow_html=True)
+
+# --- Title ---
+st.title("🎥 MP4 Video Converter")
+st.write("Easily convert MP4 to AMV, AVI, MP3, MKV, MOV, FLV, WMV and more.")
+
+# --- File Upload ---
+uploaded_file = st.file_uploader("📂 Upload an MP4 file", type=["mp4"])
+
+# --- Format Selector ---
+formats = ["amv", "avi", "mp3", "mkv", "mov", "flv", "wmv"]
+output_format = st.selectbox("📀 Select output format", formats)
+
+# --- Convert Button ---
+if uploaded_file is not None:
+    st.video(uploaded_file)
+
+    if st.button("🚀 Convert Now"):
+        with st.spinner("⏳ Converting your video... Please wait."):
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_input:
+                # Save uploaded file
+                temp_input.write(uploaded_file.read())
+                temp_input.flush()
+
+                # Output file path
+                base = os.path.splitext(temp_input.name)[0]
+                output_file = f"{base}_converted.{output_format}"
+
+                # Run ffmpeg
+                ffmpeg_cmd = ["ffmpeg", "-i", temp_input.name, "-y", output_file]
+                process = subprocess.run(ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+                # Simulate progress bar (since ffmpeg doesn't stream nicely to Streamlit)
+                progress = st.progress(0)
+                for percent in range(100):
+                    time.sleep(0.02)  # simulate progress
+                    progress.progress(percent + 1)
+
+                # Show result
+                if process.returncode == 0 and os.path.exists(output_file):
+                    with open(output_file, "rb") as f:
+                        st.success("✅ Conversion complete!")
+                        st.download_button(
+                            label=f"⬇️ Download converted file ({output_format.upper()})",
+                            data=f,
+                            file_name=f"converted.{output_format}",
+                            mime="application/octet-stream"
+                        )
+                else:
+                    st.error("❌ Conversion failed. Make sure FFmpeg is installed.")
+else:
+    st.warning("👆 Please upload an MP4 file first.")
